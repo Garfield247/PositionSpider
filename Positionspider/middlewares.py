@@ -7,6 +7,7 @@
 
 import requests
 from scrapy import signals
+from Positionspider.settings import ProxySpider
 
 class PositionspiderSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -104,8 +105,9 @@ class PositionspiderDownloaderMiddleware(object):
 
 class ProxyMiddleware(object):
     def process_request(self, request, spider):
-        if spider.name == 'zhilian':
-            proxy = requests.get(url = 'http://192.168.3.99:4396/get').text
+        if spider.name in ProxySpider:
+            proxy = requests.get(url = 'http://192.168.3.51:9527/api/rp').text
+            print(proxy)
             request.meta['proxy'] = "https://"+proxy
 
 

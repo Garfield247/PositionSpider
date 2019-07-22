@@ -33,15 +33,15 @@ class ZhilianSpider(RedisSpider):
             item['tag'] = tag
             item['position'] = position
             item['crawl_date'] = str(datetime.now().date())
-            item['job_name'] = data['jobName']
-            item['job_category'] = data['jobType'].get('display')
-            item['company_name'] = data['company'].get('name')
-            item['company_scale'] = data['company'].get('size').get('name')
-            item['experience'] = data['workingExp'].get('name')
-            item['edu'] = data['eduLevel'].get('name')
-            item['salary'] = data['salary']
-            item['job_location'] = data['city'].get('display')
-            info_url = data['positionURL']
+            item['job_name'] = data.get('jobName')
+            item['job_category'] = data.get('jobType',{}).get('display')
+            item['company_name'] = data.get('company',{}).get('name')
+            item['company_scale'] = data.get('company',{}).get('size').get('name')
+            item['experience'] = data.get('workingExp',{}).get('name')
+            item['edu'] = data.get('eduLevel',{}).get('name')
+            item['salary'] = data.get('salary')
+            item['job_location'] = data.get('city',{}).get('display')
+            info_url = data.get('positionURL')
             yield scrapy.Request(info_url,callback=self.parse_item,meta={'item':item})
         count = int(result['data'].get('numFound'))
         pagenum +=1
@@ -58,8 +58,8 @@ class ZhilianSpider(RedisSpider):
         # with open('file.html','w',encoding='utf-8') as fp:
         #     fp.write(response.text)
         item = response.meta['item']
-        item['company_addr'] = response.xpath('//p[@class="add-txt"]/text()').extract_first()
-        item['job_info'] = self.longtextsplit(response.xpath('string(.//div[@class="pos-ul"])').extract_first())
+        item['company_addr'] = response.xpath("//span[@class='job-address__content-text']/text()").extract_first()
+        item['job_info'] = self.longtextsplit(response.xpath('string(//div[@class="describtion"])').extract_first())
         yield item
 
 
