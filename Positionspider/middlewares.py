@@ -8,7 +8,6 @@
 import requests
 from scrapy import signals
 
-
 class PositionspiderSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
     # scrapy acts as if the spider middleware does not modify the
@@ -106,11 +105,7 @@ class PositionspiderDownloaderMiddleware(object):
 class ProxyMiddleware(object):
     def process_request(self, request, spider):
         if spider.name == 'zhilian':
-            proxy = requests.get(url = 'http://192.168.3.51:9527/api/rp').text
+            proxy = requests.get(url = 'http://192.168.3.99:4396/get').text
             request.meta['proxy'] = "https://"+proxy
 
-class UAMiddleware(object):
-    def process_request(self, request, spider):
-        ua = random_ua()
-        if ua:
-            request.headers.setdefault('User-Agent', ua)
+

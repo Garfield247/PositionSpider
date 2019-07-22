@@ -11,33 +11,27 @@ class ZhilianSpider(RedisSpider):
     name = 'zhilian'
     # allowed_domains = ['sou.zhilain.com']
     # start_urls = ['http://sou.zhilain.com/']
+    search_url = "https://fe-api.zhaopin.com/c/i/sou?pageSize=90&cityId=489&workExperience=-1&education=-1&companyType=-1&employmentType=-1&jobWelfareTag=-1&kw={keyword}&kt=3"
+    next_url = "https://fe-api.zhaopin.com/c/i/sou?start={start}&pageSize=90&cityId=489&workExperience=-1&education=-1&companyType=-1&employmentType=-1&jobWelfareTag=-1&kw={keyword}&kt=3"
 
     def start_requests(self):
-        with open('/project/joblist.json','r',encoding='utf-8') as fp:
-            obj = json.load(fp)
-            # print(type(obj[0]))
-            dd = obj[0]
-            job_l = []
-            for k,v in dd.items():
-                for kw in v:
-                    if k in kw:
-                        keyw = ps.quote(kw)
-                    else:
-                        keyw = ps.quote(k+' '+kw)
-                    url = 'https://fe-api.zhaopin.com/c/i/sou?pageSize=60&cityId=489&workExperience=-1&education=-1&companyType=-1&employmentType=-1&jobWelfareTag=-1&kw='+keyw+'&kt=3&lastUrlQuery=%7B%22pageSize%22:%2260%22,%22jl%22:%22489%22,%22kw%22:%22'+keyw+'%22,%22kt%22:%223%22%7D'
-                    yield scrapy.Request(url,callback = self.parse,meta={'k':k,'kw':kw,'keyw':keyw,'pn':1},dont_filter=True)
+        joblist = json.load(open(r'/project/joblist.json','r',encoding='utf-8'))[0]
+        keywords = [[tag,postion] for tag in joblist.keys() for postion in joblist.get(tag,[]) ]
+        for tag,position in keywords:
+            keyword = ps.quote(position if tag in position else "%s %s"%(tag,position))
+            yield scrapy.Request(self.search_url.format(keyword=keyword),callback=self.parse,meta={'tag':tag,'position':position,'keyword':keyword,'pagenum':1})
 
 
     def parse(self, response):
         result = json.loads(response.text)
-        k = response.meta['k']
-        kw = response.meta['kw']
-        keyw = response.meta['keyw']
-        pn = response.meta['pn']
+        tag = response.meta['tag']
+        position = response.meta['position']
+        keyword = response.meta['keyword']
+        pagenum = response.meta['pagenum']
         for data in result['data'].get('results'):
             item = PositionspiderItem()
-            item['tag'] = k
-            item['position'] = kw
+            item['tag'] = tag
+            item['position'] = position
             item['crawl_date'] = str(datetime.now().date())
             item['job_name'] = data['jobName']
             item['job_category'] = data['jobType'].get('display')
@@ -48,14 +42,10 @@ class ZhilianSpider(RedisSpider):
             item['salary'] = data['salary']
             item['job_location'] = data['city'].get('display')
             info_url = data['positionURL']
-            yield scrapy.Request(info_url,callback=self.parse_item,meta={'k':k,'kw':kw,'item':item})
+            yield scrapy.Request(info_url,callback=self.parse_item,meta={'item':item})
         count = int(result['data'].get('numFound'))
-        pn +=1
-        keyword = ps.unquote(keyw)
-        if pn*60 < count:
-            next_page = 'https://fe-api.zhaopin.com/c/i/sou?start={start}&pageSize=60&cityId=489&workExperience=-1&education=-1&companyType=-1&employmentType=-1&jobWelfareTag=-1&kw={k_w}&kt=3&lastUrlQuery='.format(start=(pn-1)*60,k_w=keyw)+ps.quote({"p":pn,"pageSize":"60","jl":"489","kw":keyword,"kt":"3"})
-            print('!!!!!',next_page)
-            yield scrapy.Request(url=next_page,callback=self.parse,meta={'k':k,'kw':kw,'keyw':keyw,'item':item},dont_filter=True )
+        pagenum +=1
+        yield scrapy.Request(url=self.next_url.format(start=(pagenum-1)*90,keyword=keyword),callback=self.parse,meta={'tag':tag,'position':position,'keyword':keyword,'pagenum':pagenum} )
     #定义处理长文本的函数
     def longtextsplit(self,longtext):
         if type(longtext) == str:
@@ -63,11 +53,6 @@ class ZhilianSpider(RedisSpider):
             return list_obj
         else:
             return ""
-
-    #定义清除转义字符的函数
-    def drop_ESC(self,obj):
-        if type(obj) == str:
-            return re.sub(r'[\r|\n|\t|\s]','',obj)
 
     def parse_item(self, response):
         # with open('file.html','w',encoding='utf-8') as fp:

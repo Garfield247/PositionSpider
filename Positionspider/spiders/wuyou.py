@@ -12,21 +12,16 @@ class WuyouSpider(RedisSpider):
     name = 'wuyou'
     # allowed_domains = ['wwww.51job.com']
     # start_urls = ['http://wwww.51job.com/']
+    search_url = "https://search.51job.com/jobsearch/search_result.php?fromJs=1&keyword={keyword}&keywordtype=2&lang=c&stype=2&postchannel=0000&fromType=1&confirmdate=9"
+
+
 
     def start_requests(self):
-        with open(r'/project/joblist.json','r',encoding='utf-8') as fp:
-            obj = json.load(fp)
-            # print(type(obj[0]))
-            dd = obj[0]
-            job_l = []
-            for k,v in dd.items():
-                for kw in v:
-                    if k in kw:
-                        keyw = ps.quote(kw)
-                    else:
-                        keyw = ps.quote(k+' '+kw)
-                    url = 'https://search.51job.com/jobsearch/search_result.php?fromJs=1&keyword='+ keyw +'&keywordtype=2&lang=c&stype=2&postchannel=0000&fromType=1&confirmdate=9'
-                    yield scrapy.Request(url,callback=self.parse,meta={'k':k,'kw':kw},dont_filter=True)
+        joblist = json.load(open(r'/project/joblist.json','r',encoding='utf-8'))[0]
+        keywords = [[tag,postion] for tag in joblist.keys() for postion in joblist.get(tag,[]) ]
+        for tag,position in keywords:
+            keyword = ps.quote(position if tag in position else "%s %s"%(tag,position))
+            yield scrapy.Request(self.search_url.format(keyword=keyword),callback=self.parse,meta={'tag':tag,'position':position})
 
 
     def dis_job_info(self,longtext):
@@ -43,31 +38,22 @@ class WuyouSpider(RedisSpider):
             return text.replace('\t','').replace('\n','').replace('\r','')
         else:
             return None
-    def com_scale(self,text):
-        try:
-            scale = text.split('|')[1].strip()
-            return scale
-        except:
-            return None
 
     def parse(self,response):
-        # with open('response.html','w',encoding='utf-8') as fp:
-        #     fp.write(response.text)
         jobs = response.xpath('.//div[@class="el"]')
         for job in jobs:
             item = PositionspiderItem()
-            k = response.meta['k']
-            kw = response.meta['kw']
-            item['tag'] = k
-            item['position'] = kw
+            tag = response.meta['tag']
+            position = response.meta['position']
+            item['tag'] = tag
+            item['position'] = position
             item['job_location'] = jobs.xpath('./span[@class="t3"]/text()').extract_first()
-            print(item['job_location'])
             info_url = job.xpath('//p[starts-with(@class,"t1")]/span/a/@href').extract_first()
-            print(info_url)
-            yield scrapy.Request(info_url,callback = self.parse_item,meta={'k':k,'kw':kw,'item':item})
+            if info_url:
+                yield scrapy.Request(info_url,callback = self.parse_item,meta={'tag':tag,'position':position,'item':item})
         next_page = response.xpath('.//div[@class="p_in"]/ul/li[@class="bk"][2]/a/@href').extract_first()
         if next_page:
-            yield scrapy.Request(url=next_page,callback=self.parse,meta={'k':k,'kw':kw})
+            yield scrapy.Request(url=next_page,callback=self.parse,meta={'tag':tag,'position':position})
 
     def parse_item(self, response):
         item = response.meta['item']
@@ -75,10 +61,16 @@ class WuyouSpider(RedisSpider):
 
         item['salary'] = response.xpath('.//div[@class="cn"]/strong/text()').extract_first()
         item['crawl_date'] = str(datetime.now().date())
-        item['job_category'] = response.xpath('.//div[@class="bmsg job_msg inbox"]/div[@class="mt10"]/p[@class="fp"]/span[@class="el"]/text()').extract_first()
-        item['company_scale'] = self.com_scale(response.xpath('.//div[@class="cn"]/p[@class="msg ltype"]/text()').extract_first())
+        item['job_category'] = response.xpath('.//div[@class="com_tag"]/p[@class="at"][3]/span[@class="i_trade"]/../a/text()').extract_first()
+        item['company_scale'] = response.xpath('.//p[@class="at"][2]/text()').extract_first()
         item['company_addr'] = self.drop_t(response.xpath('.//div[@class="bmsg inbox"]/p[@class="fp"]/text()[2]').extract_first())
-        item['edu'] = response.xpath('.//div[@class="jtag inbox"]/div[@class="t1"]/span[@class="sp4"]/em[@class="i2"]/../text()').extract_first()
-        item['experience'] = response.xpath('.//div[@class="jtag inbox"]/div[@class="t1"]/span[@class="sp4"]/em[@class="i1"]/../text()').extract_first()
+        try:
+            item['edu'] = response.xpath('.//div[@class="cn"]/p[2]/text()').extract()[2]
+        except:
+            item['edu'] = None
+        try:
+            item['experience'] = response.xpath('.//div[@class="cn"]/p[2]/text()').extract()[1]
+        except:
+            item['experience'] = None
         item['job_info'] = self.dis_job_info(response.xpath('string(.//div[@class="bmsg job_msg inbox"])').extract_first())
         yield item

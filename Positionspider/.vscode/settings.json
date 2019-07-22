@@ -1,5 +1,0 @@
-{
-    "git.ignoreLimitWarning": true,
-    "python.linting.pylintEnabled": true,
-    "python.pythonPath": "/home/garfield/.pyenv/versions/.env_scrapy/bin/python"
-}

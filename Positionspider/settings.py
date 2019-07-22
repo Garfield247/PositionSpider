@@ -37,8 +37,8 @@ DNSCACHE_ENABLED=True
 DOWNLOAD_DELAY = 1
 
 DOWNLOADER_MIDDLEWARES = {
+    # 'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware':123,
     'Positionspider.middlewares.ProxyMiddleware' : 100,
-    # 'Positionspider.middlewares.UAMiddleware' : 110,
 }
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.146 Safari/537.36'
@@ -49,7 +49,7 @@ DEFAULT_REQUEST_HEADERS = {
 
 ITEM_PIPELINES = {
     # 'Positionspider.pipelines.JsonPipeline':300,
-    'Positionspider.pipelines.SaveRedisPipline':310,
+    # 'Positionspider.pipelines.SaveRedisPipline':310,
     'Positionspider.pipelines.MongodbPiplines':290,
 }
 
